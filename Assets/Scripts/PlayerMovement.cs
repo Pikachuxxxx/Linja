@@ -61,6 +61,9 @@ public class NinjaController : MonoBehaviour
     public float fallMultiplier = 3.5f;    // faster fall
     public float lowJumpMultiplier = 2.2f; // quick tap = short hop
 
+    [Header("Jump Spin")]
+    public float jumpSpinSpeed = 720f; // degrees per second
+
     [Header("Slide")]
     public float slideSpeed = 12f;
     public float slideDuration = 0.45f;
@@ -99,6 +102,10 @@ public class NinjaController : MonoBehaviour
     float slideTimer;
     float dashTimer;
     float slideLerp;
+
+    float jumpSpinZ;
+    bool jumpSpinning;
+    float jumpSpinDir;
 
     float baseCapsuleHeight;
     Vector3 baseCapsuleCenter;
@@ -171,8 +178,20 @@ float jumpBufferTimer;
         {
             coyoteTimer = coyoteTime;
             jumpCount = 0;
+            jumpSpinZ = 0f;
+            jumpSpinning = false;
         }
 
+        if (jumpSpinning)
+        {
+            jumpSpinZ += -jumpSpinDir * jumpSpinSpeed * Time.fixedDeltaTime;
+
+            if (Mathf.Abs(jumpSpinZ) >= 360f)
+            {
+                jumpSpinZ = 0f;
+                jumpSpinning = false;
+            }
+        }
 
         HandleHorizontal();
         HandleJump();
@@ -225,6 +244,19 @@ float jumpBufferTimer;
         rb.linearVelocity = new Vector3(newX, rb.linearVelocity.y, 0f);
     }
 
+    void StartJumpSpin()
+    {
+        jumpSpinZ = 0f;
+
+        if (Mathf.Abs(moveInput) > 0.1f)
+            jumpSpinDir = Mathf.Sign(moveInput);
+        else
+            jumpSpinDir = facingDir;
+
+        jumpSpinning = true;
+        
+    }
+
     void HandleJump()
     {
         if (jumpBufferTimer <= 0f)
@@ -250,7 +282,9 @@ float jumpBufferTimer;
 
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, 0f);
             rb.AddForce(Vector3.up * doubleJumpImpulse, ForceMode.Impulse);
+            StartJumpSpin();
         }
+
     }
 
     void ApplyBetterJumpGravity()
@@ -373,14 +407,16 @@ float jumpBufferTimer;
         scale.x = Mathf.Abs(scale.x) * facingDir;
         visual.localScale = scale;
 
-        float targetZ =
+        float baseTiltZ =
             isSliding ? slideTiltAngle * slideDir :
             !isGrounded ? -airTiltAngle * facingDir :
             -runTiltAngle * (Mathf.Abs(rb.linearVelocity.x) / maxSpeed) * facingDir;
 
+        float finalZ = baseTiltZ + jumpSpinZ;
+
         visual.localRotation = Quaternion.Slerp(
             visual.localRotation,
-            Quaternion.Euler(0f, 0f, targetZ),
+            Quaternion.Euler(0f, 0f, finalZ),
             tiltSmooth * Time.fixedDeltaTime
         );
     }

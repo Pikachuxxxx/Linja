@@ -1117,7 +1117,7 @@ MonoBehaviour:
   profiles:
   - profileName: Jack
     colorProfile: 0
-    enableDoubleJump: 1
+    enableDoubleJump: 0
     enableSlide: 1
     enableDash: 1
     enableInvisibility: 1
@@ -1127,7 +1127,7 @@ MonoBehaviour:
     invisibleModel: {fileID: 0}
   - profileName: Black
     colorProfile: 2
-    enableDoubleJump: 0
+    enableDoubleJump: 1
     enableSlide: 0
     enableDash: 0
     enableInvisibility: 1
