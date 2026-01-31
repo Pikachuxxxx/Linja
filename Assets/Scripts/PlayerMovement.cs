@@ -407,6 +407,8 @@ float jumpBufferTimer;
         scale.x = Mathf.Abs(scale.x) * facingDir;
         visual.localScale = scale;
 
+        float lockedY = visual.localEulerAngles.y;
+
         float baseTiltZ =
             isSliding ? slideTiltAngle * slideDir :
             !isGrounded ? -airTiltAngle * facingDir :
@@ -414,11 +416,18 @@ float jumpBufferTimer;
 
         float finalZ = baseTiltZ + jumpSpinZ;
 
+        Quaternion targetRot = Quaternion.Euler(
+            0f,
+            lockedY,
+            finalZ
+        );
+
         visual.localRotation = Quaternion.Slerp(
             visual.localRotation,
-            Quaternion.Euler(0f, 0f, finalZ),
+            targetRot,
             tiltSmooth * Time.fixedDeltaTime
         );
+
     }
 
     bool CheckGrounded()

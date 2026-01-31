@@ -1,4 +1,7 @@
+using UnityEditor.SearchService;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
 
 public class GameManager : MonoBehaviour
 {
@@ -30,6 +33,9 @@ public class GameManager : MonoBehaviour
         isRespawning = true;
         player.Kill();
         Invoke(nameof(RespawnPlayer), respawnDelay);
+
+        // restart level logic call SceneManager.LoadScene can be added here
+        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
 
     void RespawnPlayer()
