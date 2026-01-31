@@ -4,84 +4,115 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider))]
 public class NinjaController : MonoBehaviour
 {
-    [Header("References")]
+    public enum ColorProfile
+    {
+        Red,
+        Blue,
+        Orange,
+        Purple
+    }
+
+    // ================== POWER PROFILE ==================
+
+    [System.Serializable]
+    public struct PowerProfile
+    {
+        public string profileName;
+
+        public ColorProfile colorProfile;
+
+        [Header("Powers")]
+        public bool enableDoubleJump;
+        public bool enableSlide;
+        public bool enableDash;
+        public bool enableInvisibility;
+
+        [Header("Visuals")]
+        public Material normalMaterial;
+        public Material invisibleMaterial;
+        public GameObject visibleModel;
+        public GameObject invisibleModel;
+    }
+
+    [Header("Profiles")]
+    public PowerProfile[] profiles;
+    public int currentProfileIndex = 0;
+
+    bool canDoubleJump;
+    bool canSlide;
+    bool canDash;
+    bool canInvisibility;
+
+    // ================== REFERENCES ==================
+
+    [Header("Visual")]
     public Transform visual;
+    public Renderer visualRenderer;
+
+    // ================== MOVEMENT ==================
 
     [Header("Movement")]
     public float maxSpeed = 7f;
-    public float crouchSpeed = 3.5f;
     public float groundAccel = 90f;
     public float groundDecel = 130f;
     public float airAccel = 40f;
     public float airDecel = 30f;
 
+    // ================== JUMP ==================
+
     [Header("Jump")]
     public float jumpImpulse = 7.5f;
     public float doubleJumpImpulse = 6.2f;
-    public int maxJumps = 2;
-    public float doubleJumpCooldown = 0.15f;
-    public float fallMultiplier = 3.5f;
-    public float lowJumpMultiplier = 2.3f;
+
+    // ================== SLIDE ==================
 
     [Header("Slide")]
     public float slideSpeed = 12f;
     public float slideDuration = 0.45f;
-    public float slideRecoveryTime = 0.25f;
 
-    [Header("Boost")]
-    public float boostImpulse = 12f;
-    public float boostCooldown = 0.6f;
+    // ================== DASH ==================
 
-    [Header("Visual Tilt (VALUES ONLY)")]
+    [Header("Dash")]
+    public float dashImpulse = 12f;
+    public float dashCooldown = 0.6f;
+
+    // ================== TILT (RESTORED) ==================
+
+    [Header("Tilt")]
     public float runTiltAngle = 18f;
     public float airTiltAngle = 24f;
     public float slideTiltAngle = 65f;
     public float tiltSmooth = 14f;
 
-    [Header("Crouch")]
-    public float crouchHeightFactor = 0.6f;
-    public float crouchSmooth = 12f;
-    public float crouchVisualDrop = 0.35f;
-
-    [Header("Ground Check")]
-    public float groundCheckDistance = 0.15f;
+    // ================== INTERNAL ==================
 
     Rigidbody rb;
     CapsuleCollider capsule;
 
     float moveInput;
     bool jumpQueued;
-    bool crouchHeld;
     bool slideQueued;
-    bool boostQueued;
+    bool dashQueued;
+    bool invisQueued;
 
     bool isGrounded;
     bool isSliding;
+    bool isInvisible;
 
     int facingDir = 1;
     int slideDir;
     int jumpCount;
 
     float slideTimer;
-    float slideRecoveryTimer;
-    float boostTimer;
-    float doubleJumpTimer;
-    float crouchLerp;
+    float dashTimer;
 
-    float originalCapsuleHeight;
-    Vector3 originalCapsuleCenter;
-    Vector3 visualBaseLocalPos;
+    // ================== UNITY ==================
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         capsule = GetComponent<CapsuleCollider>();
-
-        originalCapsuleHeight = capsule.height;
-        originalCapsuleCenter = capsule.center;
-
-        if (visual != null)
-            visualBaseLocalPos = visual.localPosition;
+        ApplyProfile(currentProfileIndex);
     }
 
     void Update()
@@ -89,23 +120,31 @@ public class NinjaController : MonoBehaviour
         if (Keyboard.current == null)
             return;
 
+        // A/D + arrows
         moveInput =
-            (Keyboard.current.dKey.isPressed ? 1f : 0f) -
-            (Keyboard.current.aKey.isPressed ? 1f : 0f);
+            ((Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) ? 1f : 0f) -
+            ((Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) ? 1f : 0f);
 
         if (Mathf.Abs(moveInput) > 0.1f)
             facingDir = (int)Mathf.Sign(moveInput);
 
-        crouchHeld = Keyboard.current.hKey.isPressed;
-
-        if (Keyboard.current.sKey.wasPressedThisFrame)
-            slideQueued = true;
-
         if (Keyboard.current.spaceKey.wasPressedThisFrame)
             jumpQueued = true;
 
+        if (Keyboard.current.sKey.wasPressedThisFrame || Keyboard.current.downArrowKey.wasPressedThisFrame)
+            slideQueued = true;
+
         if (Keyboard.current.eKey.wasPressedThisFrame)
-            boostQueued = true;
+            dashQueued = true;
+
+        if (Keyboard.current.qKey.wasPressedThisFrame)
+            invisQueued = true;
+
+        // TEMP profile switch keys
+        if (Keyboard.current.digit1Key.wasPressedThisFrame) ApplyProfile(0);
+        if (Keyboard.current.digit2Key.wasPressedThisFrame) ApplyProfile(1);
+        if (Keyboard.current.digit3Key.wasPressedThisFrame) ApplyProfile(2);
+        if (Keyboard.current.digit4Key.wasPressedThisFrame) ApplyProfile(3);
     }
 
     void FixedUpdate()
@@ -113,41 +152,58 @@ public class NinjaController : MonoBehaviour
         isGrounded = CheckGrounded();
 
         if (isGrounded)
-        {
             jumpCount = 0;
-            doubleJumpTimer = 0f;
-        }
 
-        boostTimer -= Time.fixedDeltaTime;
-        doubleJumpTimer -= Time.fixedDeltaTime;
-        slideRecoveryTimer -= Time.fixedDeltaTime;
+        dashTimer -= Time.fixedDeltaTime;
 
-        UpdateCrouch();
-        HandleSlide();
-        HandleBoost();
         HandleHorizontal();
         HandleJump();
-        ApplyBetterJumpPhysics();
+        HandleSlide();
+        HandleDash();
+        HandleInvisibility();
         UpdateVisuals();
     }
 
-    // ---------------- MOVEMENT ----------------
+    // ================== PROFILE ==================
+
+    public void ApplyProfile(int index)
+    {
+        if (profiles == null || profiles.Length == 0)
+            return;
+
+        index = Mathf.Clamp(index, 0, profiles.Length - 1);
+        currentProfileIndex = index;
+
+        PowerProfile p = profiles[index];
+
+        canDoubleJump = p.enableDoubleJump;
+        canSlide = p.enableSlide;
+        canDash = p.enableDash;
+        canInvisibility = p.enableInvisibility;
+
+        isInvisible = false;
+
+        if (visualRenderer != null && p.normalMaterial != null)
+            visualRenderer.material = p.normalMaterial;
+
+        if (p.visibleModel != null)
+            p.visibleModel.SetActive(true);
+
+        if (p.invisibleModel != null)
+            p.invisibleModel.SetActive(false);
+    }
+
+    // ================== MOVEMENT ==================
 
     void HandleHorizontal()
     {
         if (isSliding)
             return;
 
-        float speed = Mathf.Lerp(maxSpeed, crouchSpeed, crouchLerp);
-        float targetSpeed = moveInput * speed;
-
-        float accel =
-            Mathf.Abs(targetSpeed) > 0.01f
-                ? (isGrounded ? groundAccel : airAccel)
-                : (isGrounded ? groundDecel : airDecel);
-
-        if (slideRecoveryTimer > 0f)
-            accel *= 0.35f;
+        float targetSpeed = moveInput * maxSpeed;
+        float accel = Mathf.Abs(targetSpeed) > 0.01f
+            ? (isGrounded ? groundAccel : airAccel)
+            : (isGrounded ? groundDecel : airDecel);
 
         float newX = Mathf.MoveTowards(
             rb.linearVelocity.x,
@@ -158,7 +214,7 @@ public class NinjaController : MonoBehaviour
         rb.linearVelocity = new Vector3(newX, rb.linearVelocity.y, 0f);
     }
 
-    // ---------------- JUMP ----------------
+    // ================== JUMP ==================
 
     void HandleJump()
     {
@@ -167,120 +223,88 @@ public class NinjaController : MonoBehaviour
 
         jumpQueued = false;
 
-        if (jumpCount >= maxJumps)
-            return;
-
-        if (jumpCount > 0 && doubleJumpTimer > 0f)
-            return;
-
-        float impulse = jumpCount == 0 ? jumpImpulse : doubleJumpImpulse;
-
-        jumpCount++;
-        if (jumpCount > 1)
-            doubleJumpTimer = doubleJumpCooldown;
-
-        rb.linearVelocity = new Vector3(rb.linearVelocity.x, Mathf.Max(rb.linearVelocity.y, 0f), 0f);
-        rb.AddForce(Vector3.up * impulse, ForceMode.Impulse);
-    }
-
-    void ApplyBetterJumpPhysics()
-    {
-        if (isGrounded)
-            return;
-
-        if (rb.linearVelocity.y < 0f)
+        if (jumpCount == 0)
         {
-            rb.linearVelocity += Vector3.up * Physics.gravity.y *
-                           (fallMultiplier - 1f) * Time.fixedDeltaTime;
+            jumpCount++;
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, 0f);
+            rb.AddForce(Vector3.up * jumpImpulse, ForceMode.Impulse);
+            return;
         }
-        else if (rb.linearVelocity.y > 0f &&
-                 Keyboard.current != null &&
-                 !Keyboard.current.spaceKey.isPressed)
+
+        if (jumpCount == 1 && canDoubleJump)
         {
-            rb.linearVelocity += Vector3.up * Physics.gravity.y *
-                           (lowJumpMultiplier - 1f) * Time.fixedDeltaTime;
+            jumpCount++;
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, 0f);
+            rb.AddForce(Vector3.up * doubleJumpImpulse, ForceMode.Impulse);
         }
     }
 
-    // ---------------- CROUCH ----------------
-
-    void UpdateCrouch()
-    {
-        float target = (crouchHeld || isSliding) ? 1f : 0f;
-        crouchLerp = Mathf.MoveTowards(crouchLerp, target, crouchSmooth * Time.fixedDeltaTime);
-
-        capsule.height = Mathf.Lerp(
-            originalCapsuleHeight,
-            originalCapsuleHeight * crouchHeightFactor,
-            crouchLerp
-        );
-
-        capsule.center = Vector3.Lerp(
-            originalCapsuleCenter,
-            originalCapsuleCenter * crouchHeightFactor,
-            crouchLerp
-        );
-
-        if (visual != null)
-        {
-            Vector3 v = visualBaseLocalPos;
-            v.y -= crouchVisualDrop * crouchLerp;
-            visual.localPosition = v;
-        }
-    }
-
-    // ---------------- SLIDE ----------------
+    // ================== SLIDE ==================
 
     void HandleSlide()
     {
-        if (!isSliding && slideQueued)
+        if (!canSlide)
+            return;
+
+        if (!isSliding && slideQueued && isGrounded)
         {
             slideQueued = false;
-
-            if (!isGrounded || Mathf.Abs(rb.linearVelocity.x) < 1f)
-                return;
-
             isSliding = true;
             slideTimer = slideDuration;
             slideDir = facingDir;
-
-            rb.linearVelocity = new Vector3(slideDir * slideSpeed, rb.linearVelocity.y, 0f);
         }
 
         if (isSliding)
         {
             slideTimer -= Time.fixedDeltaTime;
-
-            // CONSTANT SPEED SLIDE (FUN PRESERVED)
             rb.linearVelocity = new Vector3(slideDir * slideSpeed, rb.linearVelocity.y, 0f);
 
             if (slideTimer <= 0f)
-            {
                 isSliding = false;
-                slideRecoveryTimer = slideRecoveryTime;
-            }
         }
     }
 
-    // ---------------- BOOST ----------------
+    // ================== DASH ==================
 
-    void HandleBoost()
+    void HandleDash()
     {
-        if (!boostQueued)
+        if (!canDash || !dashQueued)
             return;
 
-        boostQueued = false;
+        dashQueued = false;
 
-        if (boostTimer > 0f)
+        if (dashTimer > 0f)
             return;
 
-        boostTimer = boostCooldown;
+        dashTimer = dashCooldown;
 
         rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
-        rb.AddForce(Vector3.right * facingDir * boostImpulse, ForceMode.Impulse);
+        rb.AddForce(Vector3.right * facingDir * dashImpulse, ForceMode.Impulse);
     }
 
-    // ---------------- VISUALS (RESTORED LOGIC) ----------------
+    // ================== INVISIBILITY ==================
+
+    void HandleInvisibility()
+    {
+        if (!canInvisibility || !invisQueued)
+            return;
+
+        invisQueued = false;
+        isInvisible = !isInvisible;
+
+        PowerProfile p = profiles[currentProfileIndex];
+
+        if (visualRenderer != null)
+            visualRenderer.material = isInvisible ? p.invisibleMaterial : p.normalMaterial;
+
+        if (p.visibleModel != null)
+            p.visibleModel.SetActive(!isInvisible);
+
+        if (p.invisibleModel != null)
+            p.invisibleModel.SetActive(isInvisible);
+    }
+
+    // ================== VISUALS (TILT RESTORED) ==================
 
     void UpdateVisuals()
     {
@@ -294,17 +318,11 @@ public class NinjaController : MonoBehaviour
         float targetZ;
 
         if (isSliding)
-        {
             targetZ = slideTiltAngle * slideDir;
-        }
         else if (!isGrounded)
-        {
             targetZ = -airTiltAngle * facingDir;
-        }
         else
-        {
             targetZ = -runTiltAngle * (Mathf.Abs(rb.linearVelocity.x) / maxSpeed) * facingDir;
-        }
 
         visual.localRotation = Quaternion.Slerp(
             visual.localRotation,
@@ -313,13 +331,13 @@ public class NinjaController : MonoBehaviour
         );
     }
 
-    // ---------------- GROUND ----------------
+    // ================== GROUND ==================
 
     bool CheckGrounded()
     {
         Vector3 origin = transform.position;
         origin.y = capsule.bounds.min.y + 0.1f;
-        return Physics.Raycast(origin, Vector3.down, groundCheckDistance);
+        return Physics.Raycast(origin, Vector3.down, 0.15f);
     }
 
     void OnGUI()
@@ -333,15 +351,9 @@ public class NinjaController : MonoBehaviour
         GUILayout.Label("H       : Crouch (Hold)");
         GUILayout.Label("S       : Slide");
         GUILayout.Label("E       : Boost");
-
-        GUILayout.Space(10);
-
-        GUILayout.Label("State:");
-        GUILayout.Label($"Grounded : {isGrounded}");
-        GUILayout.Label($"Sliding  : {isSliding}");
-        GUILayout.Label($"JumpCnt  : {jumpCount}");
-        GUILayout.Label($"Facing   : {(facingDir == 1 ? "Right" : "Left")}");
+        GUILayout.Label("Q       : Toggle Invisibility");
+        GUILayout.Label("Press 1-4 to change profiles");
+        GUILayout.Label("Current Profile: " + profiles[currentProfileIndex].profileName);
         GUILayout.EndArea();
     }
-
 }

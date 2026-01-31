@@ -908,32 +908,45 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ebf6057a66fb4b46abc6c68d91ecfde, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  profiles:
+  - profileName: Jack
+    colorProfile: 0
+    enableDoubleJump: 1
+    enableSlide: 1
+    enableDash: 1
+    enableInvisibility: 1
+    normalMaterial: {fileID: 2100000, guid: 206e422c585a2483f837ffc95f3fd80c, type: 2}
+    invisibleMaterial: {fileID: 2100000, guid: 7500ecd5d9b414555b91c89efba9b712, type: 2}
+    visibleModel: {fileID: 0}
+    invisibleModel: {fileID: 0}
+  - profileName: Black
+    colorProfile: 2
+    enableDoubleJump: 1
+    enableSlide: 1
+    enableDash: 1
+    enableInvisibility: 1
+    normalMaterial: {fileID: 2100000, guid: 206e422c585a2483f837ffc95f3fd80c, type: 2}
+    invisibleMaterial: {fileID: 2100000, guid: 7500ecd5d9b414555b91c89efba9b712, type: 2}
+    visibleModel: {fileID: 0}
+    invisibleModel: {fileID: 0}
+  currentProfileIndex: 0
   visual: {fileID: 432207572}
+  visualRenderer: {fileID: 432207574}
   maxSpeed: 7
-  crouchSpeed: 3.5
   groundAccel: 80
   groundDecel: 130
-  airAccel: 35
+  airAccel: 40
   airDecel: 30
   jumpImpulse: 7
   doubleJumpImpulse: 5
-  maxJumps: 2
-  doubleJumpCooldown: 0.25
-  fallMultiplier: 3
-  lowJumpMultiplier: 2
   slideSpeed: 10
   slideDuration: 0.6
-  slideRecoveryTime: 0.25
-  boostImpulse: 16
-  boostCooldown: 0.8
-  runTiltAngle: 20
-  airTiltAngle: 16
-  slideTiltAngle: 60
-  tiltSmooth: 12
-  crouchHeightFactor: 0.6
-  crouchSmooth: 12
-  crouchVisualDrop: 0.35
-  groundCheckDistance: 0.15
+  dashImpulse: 12
+  dashCooldown: 0.6
+  runTiltAngle: 18
+  airTiltAngle: 24
+  slideTiltAngle: 65
+  tiltSmooth: 14
 --- !u!136 &1393860191
 CapsuleCollider:
   m_ObjectHideFlags: 0
