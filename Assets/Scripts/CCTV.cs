@@ -11,34 +11,58 @@ public class ConeLOS3D : MonoBehaviour
     public float viewAngle = 60f;
 
     [Header("References")]
-    public Transform player;
+    public NinjaController player;
     public Renderer coneRenderer;
 
     [Header("Layers")]
     public LayerMask obstacleMask;
 
+    [Header("Sweep Settings")]
+    public float maxAngle = 90f;   // half sweep (90 = 180 total)
+    public float speed = 1f;       // sweep speed
+
+    [Header("Axis")]
+    public Vector3 rotationAxis = Vector3.up; // Y axis by default
+
+    private Quaternion startRotation;
+
     bool detected;
+
+    void Start()
+    {
+        startRotation = transform.localRotation;
+        SyncSpotLight();
+    }
+
+    void OnValidate()
+    {
+        SyncSpotLight();
+    }
 
     void Update()
     {
         detected = CheckLOS();
-        coneRenderer.material.color = detected ? Color.red : Color.green;
-
-        detected = CheckLOS();
-
         if (coneRenderer)
             coneRenderer.material.color = detected ? Color.red : Color.green;
 
         if (spotLight)
             spotLight.color = detected ? Color.red : Color.green;
+
+        float t = Mathf.Sin(Time.time * speed);
+        float angle = t * maxAngle;
+
+        transform.localRotation =
+            startRotation * Quaternion.AngleAxis(angle, rotationAxis);
     }
 
     bool CheckLOS()
     {
         if (!player) return false;
 
+        if(player.IsInvisible) return false;
+
         Vector3 origin = transform.position;
-        Vector3 toPlayer = player.position - origin;
+        Vector3 toPlayer = player.transform.position - origin;
 
         if (toPlayer.magnitude > viewDistance)
             return false;
@@ -49,21 +73,11 @@ public class ConeLOS3D : MonoBehaviour
 
         if (Physics.Raycast(origin, toPlayer.normalized, out RaycastHit hit, viewDistance, obstacleMask))
         {
-            if (hit.transform != player)
+            if (hit.transform != player.transform)
                 return false;
         }
 
         return true;
-    }
-
-    void OnValidate()
-    {
-        SyncSpotLight();
-    }
-
-    void Start()
-    {
-        SyncSpotLight();
     }
 
 

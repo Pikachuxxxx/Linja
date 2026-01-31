@@ -82,6 +82,10 @@ public class NinjaController : MonoBehaviour
     public float slideTiltAngle = 65f;
     public float tiltSmooth = 14f;
 
+    [Header("Powerup settings")]
+    public float invisibilityCooldown = 0.5f;
+    private float invisibilityTimer = 0.0f;
+
     Rigidbody rb;
     CapsuleCollider capsule;
 
@@ -112,7 +116,9 @@ public class NinjaController : MonoBehaviour
     Vector3 baseVisualLocalPos;
 
     float coyoteTimer;
-float jumpBufferTimer;
+    float jumpBufferTimer;
+
+    public bool IsInvisible => isInvisible;
 
     void Awake()
     {
@@ -353,19 +359,40 @@ float jumpBufferTimer;
 
     void HandleInvisibility()
     {
-        if (!canInvisibility || !invisQueued)
+        if (!canInvisibility)
             return;
-
-        invisQueued = false;
-        isInvisible = !isInvisible;
 
         PowerProfile p = profiles[currentProfileIndex];
 
-        if (visualRenderer)
-            visualRenderer.material = isInvisible ? p.invisibleMaterial : p.normalMaterial;
+        if (invisQueued && !isInvisible)
+        {
+            invisQueued = false;
+            isInvisible = true;
+            invisibilityTimer = invisibilityCooldown;
 
-        if (p.visibleModel) p.visibleModel.SetActive(!isInvisible);
-        if (p.invisibleModel) p.invisibleModel.SetActive(isInvisible);
+            if (visualRenderer)
+                visualRenderer.material = p.invisibleMaterial;
+
+            if (p.visibleModel) p.visibleModel.SetActive(false);
+            if (p.invisibleModel) p.invisibleModel.SetActive(true);
+        }
+
+        // Countdown while invisible
+        if (isInvisible)
+        {
+            invisibilityTimer -= Time.deltaTime;
+
+            if (invisibilityTimer <= 0f)
+            {
+                isInvisible = false;
+
+                if (visualRenderer)
+                    visualRenderer.material = p.normalMaterial;
+
+                if (p.visibleModel) p.visibleModel.SetActive(true);
+                if (p.invisibleModel) p.invisibleModel.SetActive(false);
+            }
+        }
     }
 
     void UpdateSlideHeight()
