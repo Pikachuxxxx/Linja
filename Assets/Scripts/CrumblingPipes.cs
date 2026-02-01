@@ -17,8 +17,11 @@ public class CrumblingPipe : MonoBehaviour
             Collapse();
 
     }
-    void OnCollisionExit(Collision collision)
+    void OnCollisionExit(Collision c)
     {
+        var player = c.gameObject.GetComponent<NinjaController>();
+        if (!player) return;
+        
         timer = 0f;
         collapsing = false;
         GetComponent<Collider>().enabled = true;

@@ -43,6 +43,7 @@ public class NinjaController : MonoBehaviour
     [Header("Visual")]
     public Transform visual;
     public Renderer visualRenderer;
+    public Animator visualAnimator;
 
     [Header("Movement")]
     public float maxSpeed = 7f;
@@ -142,6 +143,23 @@ public class NinjaController : MonoBehaviour
         moveInput =
             ((Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) ? 1f : 0f) -
             ((Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) ? 1f : 0f);
+
+        if (moveInput != 0f)
+        {
+            if (visualAnimator != null)
+            {         
+                visualAnimator.SetBool("Run", true);
+                visualAnimator.SetBool("Idle", false);
+            }
+        }
+        else
+        {
+            if (visualAnimator != null)
+            {
+                visualAnimator.SetBool("Run", false);
+                visualAnimator.SetBool("Idle", true);
+            }
+        }
 
         if (Mathf.Abs(moveInput) > 0.1f)
             facingDir = (int)Mathf.Sign(moveInput);
@@ -444,9 +462,9 @@ public class NinjaController : MonoBehaviour
         float finalZ = baseTiltZ + jumpSpinZ;
 
         Quaternion targetRot = Quaternion.Euler(
-            0f,
+            finalZ,
             lockedY,
-            finalZ
+            0f
         );
 
         visual.localRotation = Quaternion.Slerp(
