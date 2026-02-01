@@ -121,6 +121,11 @@ public class NinjaController : MonoBehaviour
 
     public bool IsInvisible => isInvisible;
 
+    public void setProfile(int index)
+    {
+        ApplyProfile(index);
+    }
+
     void Awake()
     {
         rb = GetComponent<Rigidbody>();

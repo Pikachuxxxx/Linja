@@ -34,6 +34,8 @@ public class GameManager : MonoBehaviour
         player.Kill();
         Invoke(nameof(RespawnPlayer), respawnDelay);
 
+        FindFirstObjectByType<ColorSocketReceiver>()?.Shutdown();
+
         // restart level logic call SceneManager.LoadScene can be added here
         UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
     }
